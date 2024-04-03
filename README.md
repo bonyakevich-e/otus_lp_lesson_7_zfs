@@ -1,11 +1,31 @@
-# otus_lp_lesson_7_zfs
-OTUS Linux Professional Lesson #7 | Subject: ZFS
+### OTUS Linux Professional Lesson #7 | Subject: ZFS
+#### ЦЕЛЬ:
+Научится самостоятельно устанавливать ZFS, настраивать пулы, изучить основные возможности ZFS. 
+#### ОПИСАНИЕ ДЗ:
+1. Определить алгоритм с наилучшим сжатием:
+- определить какие алгоритмы сжатия поддерживает zfs (gzip, zle, lzjb, lz4);
+- создать 4 файловых системы на каждой применить свой алгоритм сжатия;
+- для сжатия использовать либо текстовый файл, либо группу файлов.
+2. Определить настройки пула.
+- с помощью команды zfs import собрать pool ZFS.
+- Командами zfs определить настройки:
+    - размер хранилища;
+    - тип pool;
+    - значение recordsize;
+    - какое сжатие используется;
+    - какая контрольная сумма используется.
+3. Работа со снапшотами:
+- скопировать файл из удаленной директории;
+- восстановить файл локально. zfs receive;
+- найти зашифрованное сообщение в файле secret_message.
+
 #### ПОРЯДОК ВЫПОЛНЕНИЯ:
 Поднимаем виртуальную машину с 8 дополнительными дисками (используя Vagrantfile)
 ##### ЗАДАНИЕ 1. Определение алгоритма с наилучшим сжатием
 1. Смотрим список всех дисков, которые есть в виртуальной машине:
-   
-`lsblk`
+```   
+lsblk
+```
 2. Создаём 4 пула по два диска в каждом в режиме RAID 1:
 ```
 [root@zfs ~]# zpool create otus1 mirror /dev/sda /dev/sdb
@@ -18,24 +38,27 @@ OTUS Linux Professional Lesson #7 | Subject: ZFS
 `zpool list` - показывает информацию о размере пула, количеству занятого и свободного места, дедупликации и т.д.
    
 `zpool status` - показывает информацию о каждом диске, состоянии сканирования и об ошибках чтения, записи и совпадения
-3. Дальше можно создать датасеты, либо сразу использовать весь пул (если быть точнее, то "использовать рутовый датасет", так как при создании пула создается рутовый датасет с ограниченными возможностями). Рекомендуется создавать дополнительные датасеты по следующим причинам:
-   - гибкость. каждый датасет можно настроить по своему, указав для датасета необходимые свойства, отличные от рутового (compression, encryption и т.п.) 
-   - это полезно для снапшотов и zfs send/recv. Вроде как нельзя на рутовый датасет реплицировать, а значит что нельзя без лишних телодвижений восстановить рутовый датасет из резервной копии:
-    > And you can't replicate to it, which means you can't restore from backup to it efficiently.
-    >
-    > Any attempt to zfs receive tank will fail. You can instead zfs receive tank/dataset, but if all of your applications, filesharing configs, etc all point directly to the root dataset at tank you'll have to       > reconfigure every last one of them to account for the difference.
-
-    > By contrast, if you put your data--even if it is all in a single dataset!--in tank/dataset in the first place, when you screw it up later and have to restore from backup you can zfs receive tank/dataset and     > be done with it, no reconfiguration needed.
-
-Некоторые люди даже убирают монтирование рутового датасета, чтобы он не мешал при просмотре и чтобы не записать в него что-то случайно:
-   
-`zfs set mountpoint=none poolname`,  или с опцией `"-m none"` при создании пула командой `zpool create` 
-
-Соответственно, если мы дальше создадим датасет на таком скрытом пуле, то нужно обязательно указать для него точку монтирования. Например:
-```
-zfs set mountpoint=none otus1
-zfs set mountpoint=/mnt otus1/dataset1
-```
+3. Cоздаем дополнительные датасеты в каждом пуле
+> [!NOTE]
+> Можно создать датасеты, либо сразу использовать весь пул (если быть точнее, то "использовать рутовый датасет", так как при создании пула создается рутовый датасет с ограниченными возможностями). Рекомендуется
+> создавать дополнительные датасеты по следующим причинам:
+>   - гибкость. каждый датасет можно настроить по своему, указав для датасета необходимые свойства, отличные от рутового (compression, encryption и т.п.) 
+>   - это полезно для снапшотов и zfs send/recv. Вроде как нельзя на рутовый датасет реплицировать, а значит что нельзя без лишних телодвижений восстановить рутовый датасет из резервной копии:
+>    And you can't replicate to it, which means you can't restore from backup to it efficiently.
+>    Any attempt to zfs receive tank will fail. You can instead zfs receive tank/dataset, but if all of your applications, filesharing configs, etc all point directly to the root dataset at tank you'll have to 
+>    reconfigure every last one of them to account for the difference.
+>    By contrast, if you put your data--even if it is all in a single dataset!--in tank/dataset in the first place, when you screw it up later and have to restore from backup you can zfs receive tank/dataset 
+>    and be done with it, no reconfiguration needed.
+>
+> Некоторые люди даже убирают монтирование рутового датасета, чтобы он не мешал при просмотре и чтобы не записать в него что-то случайно:
+>   
+> `[root@zfs ~]# zfs set mountpoint=none poolname`,  или с опцией `"-m none"` при создании пула командой `zpool create` 
+> 
+> Соответственно, если мы дальше создадим датасет на таком скрытом пуле, то нужно обязательно указать для него точку монтирования. Например:
+> ```
+> [root@zfs ~]# zfs set mountpoint=none otus1
+> [root@zfs ~]# zfs set mountpoint=/mnt otus1/dataset1
+> ```
 Мы пока не будем заморачиваться с отмонтированным рутовым датасетом. Просто создаем дополнительные датасеты в каждом пуле:
 ```
 [root@zfs ~]# zfs create otus1/dataset1
@@ -162,6 +185,17 @@ config:
 ```
 [root@zfs ~]# zfs receive otus/test@today < otus_task2.file
 ```
+>[!NOTE]
+> `zfs receive` создает снапшот, содержимое которого помещается в поток, направляемый на стандартный ввод. Если получен полный поток, то также создается файловая система. В нашем случае мы получаем поток с файла > otus_task2.file. Этот файл был создан командой `zfs send`, которая создает потоковое представление снапшота и перенаправялет его на стандартный вывод. По умолчанию, zfs send генерирует полный поток.
+> в "otus/test@today" today это имя снашота
+
+После выполения этой команды будет создан снапшот и новый датасет. Команды для просмотра списка снапшотов:
+```
+[root@zfs ~]# zfs list -t snapshot
+
+[root@zfs ~]# zpool get listsnapshots otus
+```
+
 3. Ищем в каталоге /otus/test файл с именем “secret_message”:
 ```
 [root@zfs ~]# find /otus/test -name "secret_message"
