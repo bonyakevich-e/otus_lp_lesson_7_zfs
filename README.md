@@ -152,3 +152,23 @@ config:
 [root@zfs ~] zfs get checksum otus
 
 ```
+#### ЗАДАНИЕ 3. Работа со снапшотами, поиск сообщения от преподавателя
+
+1. Скачиваем снапшот:
+```
+[root@zfs ~]# wget -O otus_task2.file --no-check-certificate https://drive.usercontent.google.com/download?id=1wgxjih8YZ-cqLqaZVa0lA3h3Y029c3oI&export=download
+```
+2. Восстанавливаем файловую систему со снапшота:
+```
+[root@zfs ~]# zfs receive otus/test@today < otus_task2.file
+```
+3. Ищем в каталоге /otus/test файл с именем “secret_message”:
+```
+[root@zfs ~]# find /otus/test -name "secret_message"
+/otus/test/task1/file_mess/secret_message
+
+[root@zfs ~]# cat /otus/test/task1/file_mess/secret_message
+https://otus.ru/lessons/linux-hl/
+
+```
+Видим ссылку на курс OTUS
