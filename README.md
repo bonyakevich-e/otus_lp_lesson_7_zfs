@@ -2,7 +2,7 @@
 OTUS Linux Professional Lesson #7 | Subject: ZFS
 #### ПОРЯДОК ВЫПОЛНЕНИЯ:
 Поднимаем виртуальную машину с 8 дополнительными дисками (используя Vagrantfile)
-##### Задание 1. Определение алгоритма с наилучшим сжатием
+##### ЗАДАНИЕ 1. Определение алгоритма с наилучшим сжатием
 1. Смотрим список всех дисков, которые есть в виртуальной машине:
    
    `lsblk`
@@ -43,3 +43,54 @@ OTUS Linux Professional Lesson #7 | Subject: ZFS
    [root@zfs ~]# zfs create otus3/dataset3
    [root@zfs ~]# zfs create otus4/dataset4
    ```
+4. Добавим разные алгоритмы сжатия на каждый датасет:
+   ```
+   zfs set compression=lzjb otus1/dataset1
+   zfs set compression=lz4 otus2/dataset2
+   zfs set compression=gzip-9 otus3/dataset3
+   zfs set compression=zle otus4/dataset4
+   ```
+   Проверим, что все датасеты имеют разные методы сжатия:
+   ```
+   zfs get all | grep compression
+   ```
+   *NOTE: Сжатие файлов будет работать только с файлами, которые были добавлены после включение настройки сжатия.*
+5. Скачаем один и тот же текстовый файл во все пулы:
+   ```
+   [root@zfs ~]# for i in {1..4}; do wget -P /otus$i/dataset$i https://gutenberg.org/cache/epub/2600/pg2600.converter.log; done
+   ```
+   Проверим, что файл был скачан во все пулы:
+   ```
+   [root@zfs ~]# ls -l /otus*/dataset*
+   ```
+   Уже на этом этапе видно, что самый оптимальный метод сжатия у нас используется в датасете otus3/dataset3.
+   
+   Проверим, сколько места занимает один и тот же файл в разных пулах и проверим степень сжатия файлов:
+   ```
+   [root@zfs ~]# zfs list
+   NAME             USED  AVAIL     REFER  MOUNTPOINT
+   otus1           21.7M   330M     25.5K  /otus1
+   otus1/dataset1  21.6M   330M     21.6M  /otus1/dataset1
+   otus2           17.7M   334M     25.5K  /otus2
+   otus2/dataset2  17.6M   334M     17.6M  /otus2/dataset2
+   otus3           10.8M   341M     25.5K  /otus3
+   otus3/dataset3  10.7M   341M     10.7M  /otus3/dataset3
+   otus4           39.3M   313M     25.5K  /otus4
+   otus4/dataset4  39.2M   313M     39.2M  /otus4/dataset4
+   ```
+   ```
+   [root@zfs ~]# zfs get all | grep compressratio | grep -v ref
+   otus1           compressratio         1.82x                  -
+   otus1/dataset1  compressratio         1.82x                  -
+   otus2           compressratio         2.23x                  -
+   otus2/dataset2  compressratio         2.23x                  -
+   otus3           compressratio         3.66x                  -
+   otus3/dataset3  compressratio         3.67x                  -
+   otus4           compressratio         1.00x                  -
+   otus4/dataset4  compressratio         1.00x                  -
+
+   ```
+   Видим, что алгоритм gzip-9 самый эффективный по сжатию. Но скорее всего он будет и самый медленный. Говорят что оптимальный, который "почти-налету" сжимает и почти не грузит систему - **lz4**
+
+##### ЗАДАНИЕ 2. Определение настроек пула
+   
